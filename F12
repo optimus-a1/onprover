@@ -1,0 +1,76 @@
+(() => {
+  console.log("[脚本启动] F12 控制台版脚本运行中...");
+
+  let lastStats = { earned: null, proofs: null, new: null };
+  let stuckCounter = 0;
+
+  function getStats() {
+    const spans = document.querySelectorAll("span");
+    const getNumber = (label) => {
+      for (let span of spans) {
+        if (span.textContent.includes(label)) {
+          return span.parentElement?.previousElementSibling?.textContent?.trim();
+        }
+      }
+      return null;
+    };
+    return {
+      earned: getNumber("$ON EARNED"),
+      proofs: getNumber("VERIFIED PROOFS"),
+      new: getNumber("NEW PROOFS"),
+    };
+  }
+
+  function autoClickProver(retry = 20) {
+    let attempts = 0;
+    const interval = setInterval(() => {
+      const buttons = document.querySelectorAll("button");
+      for (let btn of buttons) {
+        const txt = btn.textContent.trim().toLowerCase();
+        if (txt.includes("prover") && !txt.includes("stop")) {
+          console.log("[自动点击] Prover 按钮触发");
+          btn.click();
+          clearInterval(interval);
+          return;
+        }
+      }
+      attempts++;
+      if (attempts >= retry) {
+        console.warn("[失败] 多次尝试未找到按钮");
+        clearInterval(interval);
+      }
+    }, 1000);
+  }
+
+  // 如果出现 Cloudflare 验证提醒
+  setTimeout(() => {
+    if (document.body.innerText.includes("确认您是真人")) {
+      alert("⚠️ 请手动完成验证码 ✅，之后脚本会继续运行！");
+    } else {
+      autoClickProver();
+    }
+  }, 4000);
+
+  // 每分钟监测一次状态是否卡住
+  setInterval(() => {
+    const current = getStats();
+    console.log("[状态监控]", current);
+
+    if (
+      current.earned === lastStats.earned &&
+      current.proofs === lastStats.proofs &&
+      current.new === lastStats.new
+    ) {
+      stuckCounter++;
+      console.warn(`[卡顿警告] 第 ${stuckCounter} 分钟无变化`);
+    } else {
+      stuckCounter = 0;
+      lastStats = current;
+    }
+
+    if (stuckCounter >= 10) {
+      console.log("[页面刷新] 检测到10分钟无响应，正在刷新...");
+      location.reload();
+    }
+  }, 60 * 1000);
+})();
